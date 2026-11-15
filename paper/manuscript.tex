@@ -6,6 +6,8 @@
 \usepackage{xcolor}
 \usepackage{multirow}
 \usepackage{microtype}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 \title{High Accuracy, Low Assurance: Auditing Outcome-Proxy Sensitivity, Geographic Transportability, and Uncertainty in Student-Depression Prediction}
 
@@ -40,6 +42,16 @@ Our contributions are fourfold:
 \end{enumerate}
 
 We deliberately do not call the outcome a clinical diagnosis. The available documentation describes only a binary depression indicator and does not identify PHQ-9, CES-D, clinician assessment, or another validated reference standard \cite{haque2026dataset}.
+
+\subsection{Research Questions}
+The study is organized around four questions. \textbf{RQ1:} How much of the apparent predictive performance depends on the potential outcome proxy? \textbf{RQ2:} Do relative conclusions persist when an entire home-division group is unseen during development? \textbf{RQ3:} Are threshold errors and probability error stable across demographic, socioeconomic, and geographic subgroups? \textbf{RQ4:} How often can a proxy-free model issue an informative singleton prediction while attaining nominal conformal coverage? These questions separate discrimination from construct validity, transportability, group reliability, and uncertainty.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{../artifacts/figures/figure_7_study_architecture.png}
+\caption{End-to-end architecture. Data auditing precedes the full and proxy-free branches. Hyperparameter selection occurs only within inner folds; outer-fold predictions drive model selection and reliability stress tests.}
+\label{fig:architecture}
+\end{figure*}
 
 \section{Related Work}
 \subsection{Student-depression prediction}
@@ -84,6 +96,33 @@ The \textbf{full} setting used all 12 predictors. The \textbf{proxy-free} settin
 
 Within each training partition, missing categorical and numeric values would be imputed using the mode and median, respectively; the observed data contained no missing values. Categorical variables were one-hot encoded with unknown-level handling, and numeric variables were standardized. All preprocessing was fitted only on training data through a pipeline.
 
+Figure~\ref{fig:architecture} summarizes the analysis architecture, and Algorithm~\ref{alg:audit} specifies the evaluation protocol. Keeping preprocessing, feature exclusion, tuning, and probability generation inside their designated partitions prevents information from an evaluation fold from influencing model fitting.
+
+\begin{algorithm}[t]
+\caption{Outcome-proxy sensitivity and reliability audit}
+\label{alg:audit}
+\begin{algorithmic}[1]
+\Require Dataset $D=(X,y)$; proxy candidate $h$; model set $\mathcal{M}$
+\State Audit provenance, missingness, duplicates, prevalence, and $P(y=1\mid h)$
+\For{$S\in\{X, X\setminus h\}$} \Comment{full and proxy-free}
+    \For{model $m\in\mathcal{M}$}
+        \For{outer fold $k=1,\ldots,5$}
+            \State Fit encoders and tune $m$ by 3-fold CV using only outer-training data
+            \State Store untouched outer-fold probabilities $\hat{p}^{(k)}$
+        \EndFor
+        \State Pool OOF probabilities; compute AUPRC, AUROC, Brier, and threshold metrics
+    \EndFor
+    \State Select $m^*_S=\arg\max_m \mathrm{AUPRC}_{\mathrm{OOF}}(m,S)$
+\EndFor
+\For{home division $g$}
+    \State Tune on $D\setminus g$ and evaluate $m^*_S$ on unseen group $g$
+\EndFor
+\State Audit FNR, FPR, and Brier gaps by gender, family background, and division
+\State Repeat train/calibration/test splits; construct 90\% conformal sets
+\State \Return OOF predictions, confidence intervals, subgroup metrics, and coverage
+\end{algorithmic}
+\end{algorithm}
+
 \subsection{Models and nested validation}
 We compared a prevalence Dummy classifier, logistic regression, Random Forest, Extra Trees, and histogram gradient boosting. Hyperparameters were selected using three-fold stratified inner cross-validation, maximizing AUPRC. Generalization was estimated using five-fold stratified outer cross-validation with seed 42. Every record therefore received one out-of-fold (OOF) probability from a model that had not observed it. The model with the highest pooled OOF AUPRC within each feature setting was selected for subsequent audits. No oversampling or synthetic data were used.
 
@@ -106,6 +145,9 @@ C(x)=\{k \in \{0,1\}: 1-\hat{p}_k(x) \leq \hat{q}\}.
 \end{equation}
 We report coverage, mean set size, singleton rate, and singleton accuracy. We also evaluated conventional abstention by retaining predictions above progressively stricter distance-from-0.5 confidence thresholds.
 
+\subsection{Reproducibility and statistical safeguards}
+Random seeds, fold assignments, tuned parameters, OOF probabilities, subgroup tables, and figure inputs are retained as machine-readable artifacts. Model selection uses only OOF AUPRC; test probabilities are never reused for hyperparameter selection. Bootstrap intervals quantify sampling variability of pooled OOF predictions but do not capture uncertainty from a new institution or measurement process. We therefore interpret interval width separately from transportability. Because subgroup analyses are descriptive and involve multiple comparisons, no subgroup difference is presented as a confirmatory hypothesis test.
+
 \section{Results}
 \subsection{Internal performance and proxy sensitivity}
 Table~\ref{tab:main} reports the selected model in each setting. The full Random Forest obtained AUPRC 0.998 and AUROC 0.999. After excluding health condition, the selected histogram gradient-boosting model obtained AUPRC 0.520 and AUROC 0.751. The AUPRC difference was 0.478. Thus, the headline full-model performance is not robust to one plausible outcome-proxy exclusion.
@@ -124,6 +166,40 @@ Proxy-free & HistGradientBoosting & 0.751 (0.735--0.766) & 0.520 (0.491--0.551) 
 \end{tabular}
 \end{table*}
 
+Table~\ref{tab:allmodels} extends the comparison to every model family. All non-dummy full models had AUPRC above 0.987, showing that the near-perfect full-setting result was not specific to one algorithm. In the proxy-free setting, histogram gradient boosting ranked first by AUPRC, but Random Forest had a slightly larger AUROC and slightly smaller Brier score. This metric disagreement is why selection criteria were prespecified rather than chosen after inspecting results.
+
+\begin{table*}[t]
+\centering
+\caption{Complete nested-CV model comparison. Best AUPRC within each feature setting is bold.}
+\label{tab:allmodels}
+\begin{tabular}{llccccccc}
+\toprule
+Setting & Model & AUROC & AUPRC & Brier & Bal. Acc. & Sens. & Spec. & F1 \\
+\midrule
+\multirow{5}{*}{Full}
+ & Dummy & 0.499 & 0.269 & 0.197 & 0.500 & 0.000 & 1.000 & 0.000 \\
+ & Logistic regression & 0.992 & 0.988 & 0.018 & 0.965 & 0.940 & 0.991 & 0.956 \\
+ & Random Forest & 0.999 & \textbf{0.998} & 0.010 & 0.979 & 0.959 & 0.999 & 0.978 \\
+ & Extra Trees & 0.999 & 0.997 & 0.011 & 0.975 & 0.953 & 0.998 & 0.973 \\
+ & HistGradientBoosting & 0.999 & 0.998 & 0.005 & 0.990 & 0.982 & 0.998 & 0.988 \\
+\midrule
+\multirow{5}{*}{Proxy-free}
+ & Dummy & 0.499 & 0.269 & 0.197 & 0.500 & 0.000 & 1.000 & 0.000 \\
+ & Logistic regression & 0.718 & 0.454 & 0.174 & 0.555 & 0.154 & 0.956 & 0.242 \\
+ & Random Forest & 0.756 & 0.510 & 0.166 & 0.576 & 0.201 & 0.951 & 0.301 \\
+ & Extra Trees & 0.738 & 0.464 & 0.171 & 0.559 & 0.172 & 0.946 & 0.262 \\
+ & HistGradientBoosting & 0.751 & \textbf{0.520} & 0.167 & 0.612 & 0.312 & 0.911 & 0.402 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{../artifacts/figures/figure_8_all_model_comparison.png}
+\caption{All-model comparison across full and proxy-free feature settings. AUPRC measures ranking under class imbalance; Brier score measures probability error and is lower when better.}
+\label{fig:models}
+\end{figure*}
+
 Figure~\ref{fig:curves} shows OOF discrimination. The proxy-free model improves substantially over the 0.269 prevalence baseline but has limited sensitivity at a 0.5 threshold. This illustrates why ranking metrics and threshold behavior must be reported together.
 
 \begin{figure}[t]
@@ -131,6 +207,15 @@ Figure~\ref{fig:curves} shows OOF discrimination. The proxy-free model improves 
 \includegraphics[width=\columnwidth]{../artifacts/figures/figure_3_discrimination_curves.png}
 \caption{Out-of-fold ROC and precision--recall curves for selected full and proxy-free models.}
 \label{fig:curves}
+\end{figure}
+
+The OOF calibration curves in Figure~\ref{fig:calibration} further distinguish discrimination from probability reliability. The full model concentrates predictions close to the empirical extremes, while the proxy-free curve shows larger departures from the identity line. These probabilities would require external recalibration before any threshold-based workflow.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.88\columnwidth]{../artifacts/figures/figure_4_calibration.png}
+\caption{Quantile-binned OOF calibration for selected models.}
+\label{fig:calibration}
 \end{figure}
 
 \subsection{Geographic-group transportability}
@@ -160,8 +245,26 @@ Proxy-free & 0.691 & 0.452 & 0.184 & 0.362 \\
 \subsection{Subgroup reliability}
 Gender gaps were small for both settings: the proxy-free FNR gap was 0.008 and FPR gap was 0.022. This should not be read as proof of fairness. Larger differences appeared across family background (FNR gap 0.188) and home division (FNR gap 0.284; FPR gap 0.082; Brier gap 0.049) in the proxy-free setting. The full model's corresponding division FNR gap was 0.059. The reduction in aggregate performance therefore coincided with greater geographic heterogeneity.
 
+Figure~\ref{fig:fairness} makes the practical asymmetry visible. In the proxy-free setting, false-negative rates are consistently much larger than false-positive rates at threshold 0.5 and vary materially by division. A high specificity combined with a high FNR is not an acceptable substitute for a clinically selected operating point.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{../artifacts/figures/figure_9_division_error_disparity.png}
+\caption{Division-level false-negative and false-positive rates for selected full and proxy-free models at threshold 0.5.}
+\label{fig:fairness}
+\end{figure*}
+
 \subsection{Uncertainty}
 Across five independent 90\% split-conformal runs, mean coverage was 0.903 (range 0.887--0.910), mean set size was 1.391, and 60.9\% of cases received singleton sets. Mean singleton accuracy was 0.841. No empty sets occurred. The conformal procedure achieved its marginal target on average, but roughly two in five cases required a two-label set. This is evidence for explicit uncertainty handling, not a guarantee of clinical safety.
+
+Figure~\ref{fig:conformal} shows run-to-run variability. One split fell below nominal coverage (0.887), as finite-sample marginal validity is probabilistic across random calibration/test draws. Singleton rates varied from 0.560 to 0.657, demonstrating that nominal coverage alone does not describe informativeness.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{../artifacts/figures/figure_10_conformal_reliability.png}
+\caption{Repeated split-conformal coverage, singleton rate, and singleton accuracy.}
+\label{fig:conformal}
+\end{figure}
 
 \section{Discussion}
 The central finding is not that Random Forest can obtain near-perfect scores. It is that those scores are highly sensitive to one self-reported variable whose categories almost partition the binary outcome. Without documented questionnaire wording, health condition may be a legitimate concurrent correlate, a component of how respondents understand depression, or an outcome-derived proxy. Each interpretation limits claims of early non-clinical screening.
