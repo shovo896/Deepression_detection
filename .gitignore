@@ -1,1 +1,8 @@
 /.qodo
+__pycache__/
+.ipynb_checkpoints/
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
