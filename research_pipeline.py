@@ -710,7 +710,7 @@ def create_figures(
     # Complete model comparison across both feature settings.
     comparison = summary.copy()
     order = ["Dummy", "Logistic", "RandomForest", "ExtraTrees", "HistGradientBoosting"]
-    fig, axes = plt.subplots(2, 1, figsize=(7, 7.2))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
     sns.barplot(data=comparison, x="model", y="AUPRC", hue="feature_set", order=order, ax=axes[0])
     axes[0].axhline(y.mean(), color="black", linestyle="--", linewidth=1, label="Prevalence")
     axes[0].set(title="Precision-recall discrimination", xlabel="Model", ylabel="AUPRC", ylim=(0, 1.03))
@@ -729,7 +729,7 @@ def create_figures(
     sns.barplot(data=division_fairness, x="level", y="FPR", hue="feature_set", ax=axes[1])
     axes[1].set(title="False-positive rate by home division", xlabel="Home division", ylabel="FPR", ylim=(0, 0.35))
     for axis in axes:
-        axis.tick_params(axis="x", rotation=25, labelsize=8)
+        axis.tick_params(axis="x", rotation=30)
         axis.legend(fontsize=8)
     _savefig(paths["figures"] / "figure_9_division_error_disparity.png")
 
