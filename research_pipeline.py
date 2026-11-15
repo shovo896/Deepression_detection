@@ -575,6 +575,8 @@ def create_figures(
     predictions: pd.DataFrame,
     selected: dict[str, str],
     geo_detail: pd.DataFrame,
+    fairness: pd.DataFrame,
+    conformal_runs: pd.DataFrame,
     paths: dict[str, Path],
 ) -> None:
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.15)
@@ -666,6 +668,83 @@ def create_figures(
     ax1.set_title("Proxy-free selective prediction trade-off")
     _savefig(paths["figures"] / "figure_6_selective_prediction.png")
 
+    # End-to-end study architecture.  This is deliberately generated from
+    # code so that labels remain editable and the figure is reproducible.
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    fig, ax = plt.subplots(figsize=(13, 3.8))
+    ax.set_xlim(0, 13)
+    ax.set_ylim(0, 4)
+    ax.axis("off")
+    boxes = [
+        (0.2, 1.3, 1.7, 1.25, "Public survey\n4,464 records", "#DCEAF7"),
+        (2.2, 1.3, 1.8, 1.25, "Data audit\nprovenance + proxy", "#FCE8D5"),
+        (4.3, 0.35, 1.9, 1.15, "Proxy-free branch\nremove health", "#F8D7DA"),
+        (4.3, 2.35, 1.9, 1.15, "Full branch\n12 predictors", "#D8F0E2"),
+        (6.55, 1.3, 1.9, 1.25, "Nested 5 x 3 CV\n5 model families", "#E7E0F4"),
+        (8.8, 1.3, 1.8, 1.25, "OOF selection\nAUPRC primary", "#FFF2CC"),
+        (10.95, 1.3, 1.8, 1.25, "Stress tests\ntransportability\nfairness + conformal", "#D9EAD3"),
+    ]
+    for x0, y0, width, height, label, color in boxes:
+        patch = FancyBboxPatch(
+            (x0, y0), width, height,
+            boxstyle="round,pad=0.04,rounding_size=0.08",
+            facecolor=color, edgecolor="#333333", linewidth=1.2,
+        )
+        ax.add_patch(patch)
+        ax.text(x0 + width / 2, y0 + height / 2, label, ha="center", va="center", fontsize=10)
+    arrows = [
+        ((1.9, 1.93), (2.2, 1.93)),
+        ((4.0, 1.93), (4.3, 0.93)),
+        ((4.0, 1.93), (4.3, 2.93)),
+        ((6.2, 0.93), (6.55, 1.75)),
+        ((6.2, 2.93), (6.55, 2.1)),
+        ((8.45, 1.93), (8.8, 1.93)),
+        ((10.6, 1.93), (10.95, 1.93)),
+    ]
+    for start, end in arrows:
+        ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=14, linewidth=1.2, color="#333333"))
+    ax.set_title("Outcome-proxy audit and reliability-evaluation architecture", fontsize=13, pad=8)
+    _savefig(paths["figures"] / "figure_7_study_architecture.png")
+
+    # Complete model comparison across both feature settings.
+    comparison = summary.copy()
+    order = ["Dummy", "Logistic", "RandomForest", "ExtraTrees", "HistGradientBoosting"]
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+    sns.barplot(data=comparison, x="model", y="AUPRC", hue="feature_set", order=order, ax=axes[0])
+    axes[0].axhline(y.mean(), color="black", linestyle="--", linewidth=1, label="Prevalence")
+    axes[0].set(title="Precision-recall discrimination", xlabel="Model", ylabel="AUPRC", ylim=(0, 1.03))
+    sns.barplot(data=comparison, x="model", y="Brier", hue="feature_set", order=order, ax=axes[1])
+    axes[1].set(title="Probability error (lower is better)", xlabel="Model", ylabel="Brier score", ylim=(0, 0.23))
+    for axis in axes:
+        axis.tick_params(axis="x", rotation=24)
+        axis.legend(fontsize=8)
+    _savefig(paths["figures"] / "figure_8_all_model_comparison.png")
+
+    # Division-level threshold error disparities for selected models.
+    division_fairness = fairness[fairness["group"] == "Home_division"].copy()
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+    sns.barplot(data=division_fairness, x="level", y="FNR", hue="feature_set", ax=axes[0])
+    axes[0].set(title="False-negative rate by home division", xlabel="Home division", ylabel="FNR", ylim=(0, 1.0))
+    sns.barplot(data=division_fairness, x="level", y="FPR", hue="feature_set", ax=axes[1])
+    axes[1].set(title="False-positive rate by home division", xlabel="Home division", ylabel="FPR", ylim=(0, 0.35))
+    for axis in axes:
+        axis.tick_params(axis="x", rotation=30)
+        axis.legend(fontsize=8)
+    _savefig(paths["figures"] / "figure_9_division_error_disparity.png")
+
+    # Repeated split-conformal coverage and informativeness.
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.4))
+    axes[0].plot(conformal_runs["seed"].astype(str), conformal_runs["coverage"], marker="o", linewidth=2)
+    axes[0].axhline(0.90, color="#E45756", linestyle="--", label="Nominal 90%")
+    axes[0].set(title="Marginal conformal coverage", xlabel="Split seed", ylabel="Coverage", ylim=(0.84, 0.94))
+    axes[0].legend(fontsize=8)
+    axes[1].bar(conformal_runs["seed"].astype(str), conformal_runs["singleton_rate"], color="#4C78A8", label="Singleton rate")
+    axes[1].plot(conformal_runs["seed"].astype(str), conformal_runs["singleton_accuracy"], color="#F58518", marker="s", linewidth=2, label="Singleton accuracy")
+    axes[1].set(title="Conformal informativeness", xlabel="Split seed", ylabel="Rate", ylim=(0, 1.0))
+    axes[1].legend(fontsize=8)
+    _savefig(paths["figures"] / "figure_10_conformal_reliability.png")
+
 
 def run_all(
     csv_path: str | Path = "Student_Depression_Dataset.csv",
@@ -699,7 +778,18 @@ def run_all(
     conformal_runs, conformal_subgroups = conformal_experiment(
         X, y, raw, selected["proxy_free"], paths
     )
-    create_figures(raw, y, audit, summary, predictions, selected, geo_detail, paths)
+    create_figures(
+        raw,
+        y,
+        audit,
+        summary,
+        predictions,
+        selected,
+        geo_detail,
+        fairness,
+        conformal_runs,
+        paths,
+    )
 
     manifest = {
         "dataset": str(csv_path.resolve()),

@@ -69,6 +69,12 @@ results = run_all(
 print("Selected models:", results["selected"])
 """
     ),
+    markdown("## End-to-end study architecture"),
+    code(
+        """
+display(Image(filename="artifacts/figures/figure_7_study_architecture.png", width=1050))
+"""
+    ),
     markdown("## Dataset and potential outcome-proxy audit"),
     code(
         """
@@ -96,6 +102,7 @@ display(
     .style.format(precision=3)
 )
 display(Image(filename="artifacts/figures/figure_2_nested_cv_auprc.png", width=900))
+display(Image(filename="artifacts/figures/figure_8_all_model_comparison.png", width=1000))
 display(Image(filename="artifacts/figures/figure_3_discrimination_curves.png", width=900))
 display(Image(filename="artifacts/figures/figure_4_calibration.png", width=550))
 """
@@ -126,6 +133,7 @@ display(gaps.style.format(precision=3))
 
 gender_rows = results["fairness"][results["fairness"]["group"] == "Gender"]
 display(gender_rows.style.format(precision=3))
+display(Image(filename="artifacts/figures/figure_9_division_error_disparity.png", width=1000))
 """
     ),
     markdown(
@@ -139,6 +147,7 @@ These are descriptive subgroup audits. They do not establish individual fairness
 display(results["conformal_runs"].style.format(precision=3))
 display(results["conformal_runs"].mean(numeric_only=True).to_frame("mean").T.style.format(precision=3))
 display(Image(filename="artifacts/figures/figure_6_selective_prediction.png", width=750))
+display(Image(filename="artifacts/figures/figure_10_conformal_reliability.png", width=900))
 """
     ),
     markdown(
@@ -156,6 +165,10 @@ required_files = [
     "artifacts/tables/geographic_validation_overall.csv",
     "artifacts/tables/subgroup_fairness_metrics.csv",
     "artifacts/tables/conformal_runs.csv",
+    "artifacts/figures/figure_7_study_architecture.png",
+    "artifacts/figures/figure_8_all_model_comparison.png",
+    "artifacts/figures/figure_9_division_error_disparity.png",
+    "artifacts/figures/figure_10_conformal_reliability.png",
 ]
 for filename in required_files:
     path = Path(filename)
