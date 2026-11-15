@@ -8,6 +8,7 @@
 \usepackage{microtype}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{placeins}
 
 \title{High Accuracy, Low Assurance: Auditing Outcome-Proxy Sensitivity, Geographic Transportability, and Uncertainty in Student-Depression Prediction}
 
@@ -209,15 +210,6 @@ Figure~\ref{fig:curves} shows OOF discrimination. The proxy-free model improves 
 \label{fig:curves}
 \end{figure}
 
-The OOF calibration curves in Figure~\ref{fig:calibration} further distinguish discrimination from probability reliability. The full model concentrates predictions close to the empirical extremes, while the proxy-free curve shows larger departures from the identity line. These probabilities would require external recalibration before any threshold-based workflow.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.88\columnwidth]{../artifacts/figures/figure_4_calibration.png}
-\caption{Quantile-binned OOF calibration for selected models.}
-\label{fig:calibration}
-\end{figure}
-
 \subsection{Geographic-group transportability}
 The full model remained near-perfect when each home division was held out (AUPRC 0.998, AUROC 0.999), consistent with the health-condition association persisting across divisions. The proxy-free model declined to AUPRC 0.452, AUROC 0.691, and Brier score 0.184 (Table~\ref{tab:geo}). Proxy-free division-specific AUPRC ranged from 0.393 in Dhaka to 0.551 in Khulna; because prevalence differed, AUPRC should be interpreted together with each division's baseline.
 
@@ -247,12 +239,12 @@ Gender gaps were small for both settings: the proxy-free FNR gap was 0.008 and F
 
 Figure~\ref{fig:fairness} makes the practical asymmetry visible. In the proxy-free setting, false-negative rates are consistently much larger than false-positive rates at threshold 0.5 and vary materially by division. A high specificity combined with a high FNR is not an acceptable substitute for a clinically selected operating point.
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{../artifacts/figures/figure_9_division_error_disparity.png}
+\includegraphics[width=0.96\columnwidth]{../artifacts/figures/figure_9_division_error_disparity.png}
 \caption{Division-level false-negative and false-positive rates for selected full and proxy-free models at threshold 0.5.}
 \label{fig:fairness}
-\end{figure*}
+\end{figure}
 
 \subsection{Uncertainty}
 Across five independent 90\% split-conformal runs, mean coverage was 0.903 (range 0.887--0.910), mean set size was 1.391, and 60.9\% of cases received singleton sets. Mean singleton accuracy was 0.841. No empty sets occurred. The conformal procedure achieved its marginal target on average, but roughly two in five cases required a two-label set. This is evidence for explicit uncertainty handling, not a guarantee of clinical safety.
@@ -265,6 +257,8 @@ Figure~\ref{fig:conformal} shows run-to-run variability. One split fell below no
 \caption{Repeated split-conformal coverage, singleton rate, and singleton accuracy.}
 \label{fig:conformal}
 \end{figure}
+
+\FloatBarrier
 
 \section{Discussion}
 The central finding is not that Random Forest can obtain near-perfect scores. It is that those scores are highly sensitive to one self-reported variable whose categories almost partition the binary outcome. Without documented questionnaire wording, health condition may be a legitimate concurrent correlate, a component of how respondents understand depression, or an outcome-derived proxy. Each interpretation limits claims of early non-clinical screening.
